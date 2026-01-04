@@ -3,12 +3,16 @@ import csv
 import os
 import json
 from dotenv import load_dotenv
-from openai import OpenAI
+import google.generativeai as genai
 from concurrent.futures import ThreadPoolExecutor
 from common import SearchClient, SummaryClient
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Configure Gemini API
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+genai.configure(api_key=GEMINI_KEY)
+gemini_model = genai.GenerativeModel('gemini-2.5-flash')
 
 STATE_FILE = "state.csv"
 
@@ -57,15 +61,11 @@ Respond with ONLY one word: search, summarize, or conversation_query
 """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4.1-nano",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that analyzes user queries to determine intent. Always respond with exactly one word: search, summarize, or conversation_query."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        text = response.choices[0].message.content.strip().lower()
+        prompt_text = f"""You are a helpful assistant that analyzes user queries to determine intent. Always respond with exactly one word: search, summarize, or conversation_query.
+
+{prompt}"""
+        response = gemini_model.generate_content(prompt_text)
+        text = response.text.strip().lower()
         
         valid_intents = ["search", "summarize", "conversation_query"]
         for intent in valid_intents:
@@ -135,15 +135,11 @@ Respond with ONLY a JSON array of stage names, e.g., ["search"] or ["search", "s
 """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4.1-nano",
-            messages=[
-                {"role": "system", "content": "You are a planning agent. Always respond with a valid JSON array of stage names. Example: [\"search\"] or [\"search\", \"summarize\"]. Do not execute more stages than necessary."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2
-        )
-        text = response.choices[0].message.content.strip()
+        prompt_text = f"""You are a planning agent. Always respond with a valid JSON array of stage names. Example: ["search"] or ["search", "summarize"]. Do not execute more stages than necessary.
+
+{prompt}"""
+        response = gemini_model.generate_content(prompt_text)
+        text = response.text.strip()
         
         if "```" in text:
             text = text.split("```")[1]
@@ -184,14 +180,11 @@ User intent: {user_intent}
 Return JSON list of required states:
 INIT, SEARCHED, SUMMARIZED, REVIEWED, INSIGHTED
 """
-    response = client.chat.completions.create(
-        model="gpt-4.1-nano",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that returns JSON responses."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    text = response.choices[0].message.content.strip()
+    prompt_text = f"""You are a helpful assistant that returns JSON responses.
+
+{prompt}"""
+    response = gemini_model.generate_content(prompt_text)
+    text = response.text.strip()
     if "```" in text:
         text = text.split("```")[1]
         if text.startswith("json"):
@@ -383,15 +376,11 @@ Provide a helpful and concise answer based on the conversation history. If the q
 """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4.1-nano",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that answers questions about previous conversations. Use the conversation history to provide accurate and helpful responses."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        text = response.choices[0].message.content.strip()
+        prompt_text = f"""You are a helpful assistant that answers questions about previous conversations. Use the conversation history to provide accurate and helpful responses.
+
+{prompt}"""
+        response = gemini_model.generate_content(prompt_text)
+        text = response.text.strip()
         
         # Calculate confidence based on response length
         from common import confidence_from_text

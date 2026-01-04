@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 requests
-openai
+google-generativeai
 flask
 python-dotenv
-
